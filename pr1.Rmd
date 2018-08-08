@@ -1,0 +1,776 @@
+---
+title: 'Project 1: Explore and Prepare Data'
+subtitle: |-
+  CSE6242 - Data and Visual Analytics - Fall 2017
+  Due: Sunday, October 15, 2017 at 11:59 PM UTC-12:00 on T-Square
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+_Note: This project involves getting data ready for analysis and doing some preliminary investigations. Project 2 will involve modeling and predictions on the same dataset, and will be released at a later date. Both projects will have equal weightage towards your grade. You may reuse some of the preprocessing/analysis steps from Project 1 in Project 2._
+
+# Data
+
+In this project, you will explore a dataset that contains information about movies, including ratings, budget, gross revenue and other attributes. It was prepared by Dr. Guy Lebanon, and here is his description of the dataset:
+
+> The file [`movies_merged`](https://s3.amazonaws.com/content.udacity-data.com/courses/gt-cs6242/project/movies_merged) contains a dataframe with the same name that has 40K rows and 39 columns. Each row represents a movie title and each column represents a descriptor such as `Title`, `Actors`, and `Budget`. I collected the data by querying IMDb’s API (see [www.omdbapi.com](http://www.omdbapi.com/)) and joining it with a separate dataset of movie budgets and gross earnings (unknown to you). The join key was the movie title. This data is available for personal use, but IMDb’s terms of service do not allow it to be used for commercial purposes or for creating a competing repository.
+
+# Objective
+
+Your goal is to investigate the relationship between the movie descriptors and the box office success of movies, as represented by the variable `Gross`. This task is extremely important as it can help a studio decide which titles to fund for production, how much to bid on produced movies, when to release a title, how much to invest in marketing and PR, etc. This information is most useful before a title is released, but it is still very valuable after the movie is already released to the public (for example it can affect additional marketing spend or how much a studio should negotiate with on-demand streaming companies for “second window” streaming rights).
+
+# Instructions
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. Open this file in RStudio to get started.
+
+When you execute code within the notebook, the results appear beneath the code. Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+x = 1:10
+print(x^2)
+```
+
+Plots appear inline too:
+```{r}
+plot(x, x^2, 'o')
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*. Enter some R code and run it.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+Please complete all the tasks below by implementing code chunks that have a `TODO` comment in them, running all code chunks so that output and plots are displayed, and typing in answers to each question (**Q:** ...) next to/below the corresponding answer prompt (**A:**). Feel free to add code chunks/show additional output to support any of the answers.
+
+When you are done, you will need to submit the final R markdown file (as **pr1.Rmd**) with all code chunks implemented and executed, and all text responses written in. You also need to submit a PDF export of the markdown file (as **pr1.pdf**), which should show your code, output, plots and written responses--this will be your project report. Compress these two files into a single .zip archive and upload it on T-Square.
+
+# Setup
+
+## Load data
+
+Make sure you've downloaded the [`movies_merged`](https://s3.amazonaws.com/content.udacity-data.com/courses/gt-cs6242/project/movies_merged) file and it is in the current working directory. Now load it into memory:
+
+```{r}
+load('movies_merged')
+cat("Dataset has", dim(movies_merged)[1], "rows and", dim(movies_merged)[2], "columns",    
+    end="\n", file="")
+```
+
+This creates an object of the same name (`movies_merged`). For convenience, you can copy it to `df` and start using it:
+
+```{r}
+df = movies_merged
+cat("Column names:", end="\n", file="")
+colnames(df)
+```
+
+## Load R packages
+
+Load any R packages that you will need to use. You can come back to this chunk, edit it and re-run to load any additional packages later.
+
+```{r}
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(stringr)
+library(data.table)
+library(PerformanceAnalytics)
+library(ggpubr)
+```
+
+If you are loading any non-standard packages (ones that have not been discussed in class or explicitly allowed for this project), please mention them below. Include any special instructions if they cannot be installed using the regular `install.packages('<pkg name>')` command.
+
+**Non-standard packages used**: None
+
+# Tasks
+
+Each task below is worth **10** points, and is meant to be performed sequentially, i.e. do step 2 after you have processed the data as described in step 1. Total points: **100**
+
+Complete each task by implementing code chunks as described by `TODO` comments, and by responding to questions ("**Q**:") with written answers ("**A**:"). If you are unable to find a meaningful or strong relationship in any of the cases when requested, explain why not by referring to appropriate plots/statistics.
+
+It is okay to handle missing values below by omission, but please omit as little as possible. It is worthwhile to invest in reusable and clear code as you may need to use it or modify it in project 2.
+
+## 1. Remove non-movie rows
+
+The variable `Type` captures whether the row is a movie, a TV series, or a game. Remove all rows from `df` that do not correspond to movies.
+
+```{r}
+# TODO: Remove all rows from df that do not correspond to movies
+#basic R filter rows 
+#dim(df)
+#df2 <- df[df$Type == "movie",]
+#dim(df2)
+
+#using dplyr to filter rows in dataframe
+df2 = filter(df, Type == 'movie') 
+```
+
+**Q**: How many rows are left after removal? 
+
+**A**: 40000
+
+## 2. Process `Runtime` column
+
+The variable `Runtime` represents the length of the title as a string. Write R code to convert it to a numeric value (in minutes) and replace `df$Runtime` with the new numeric column.
+
+```{r}
+# TODO: Replace df$Runtime with a numeric column containing the runtime in minutes
+a = 'N/A'
+b = 'h'
+
+df2$Runtime_converted = 
+  sapply(df2$Runtime, function(x) {
+#grep return the index value of each matched pattern
+#grepl returns a logical output for each indices in the original vector
+    if (grepl(b, x)){
+      as.numeric(strsplit(x, ' ')[[1]][1]) * 60 + as.numeric(strsplit(x, ' ')[[1]][3])
+      }
+    if (x == 'N/A'){
+      NA
+      }
+    else as.numeric(strsplit(x, ' ')[[1]][1])
+    })
+```
+
+Now investigate the distribution of `Runtime` values and how it changes over years (variable `Year`, which you can bucket into decades) and in relation to the budget (variable `Budget`). Include any plots that illustrate.
+
+```{r}
+# TODO: Investigate the distribution of Runtime values and how it varies by Year and Budget
+
+#use the floor function to bucket the year 
+df2$years = as.factor((floor(df2$Year/10))*10)
+
+ggplot(df2, aes(x = years, y = Runtime_converted, color = years)) + geom_boxplot() + xlab('Years') + 
+ylab('Movie Run Time') + ggtitle('Movie Run Time By Year')                                                                                                                              #remove outliers greater than 250 in order to present the boxplot trend more clearly
+time = df2$Runtime_converted
+num_outliers_removed = length(time[complete.cases(time)][time[complete.cases(time)]>250])
+
+ggplot(df2, aes(x = years, y = Runtime_converted, color = years)) + geom_boxplot()+ xlab('Years') + ylab('Movie Run Time') + coord_cartesian(ylim=c(0,250)) + ggtitle('Movie Run Time By Year(deleted 53 outliers greater than 250)')
+```
+
+```{r}
+summary(df2$Budget)
+
+
+#bucket years by 30 years
+df2$grouped_years = df2$years
+levels(df2$grouped_years)
+levels(df2$grouped_years) = c(rep('before1900s',3), rep('1910s-1930s',3),rep('1940s-1960s',3), rep('1970s-1990s',3),rep('2000s-2010s',2))
+
+#transform the budget by chaning the unit as million
+df2$tran_budget = df2$Budget/1000000
+
+#visualize the year, budget, and run time
+ggplot(df2, aes(x = tran_budget, y = Runtime_converted, col = grouped_years)) +
+  geom_point(alpha = 0.7) + coord_cartesian(ylim=c(0,350))+ geom_smooth() + ggtitle('Movie Run Time by Grouped Year and Budget in million') + xlab('Budget in million') + ylab('Run Time in minute')
+
+
+```
+
+**Q**: Comment on the distribution as well as relationships. Are there any patterns or trends that you can observe?
+
+**A**:
+**relationship between Year and Run Time**
+
+* Data processing before plotting
+  1. The Year variable in dataset is originally continuous variable, I bucket this continuous variable by decades. The new variable years are transformed by chaning the Year into times, like 1888 would be transformed into 1880. The graph of * Movie Run Time By Year * represents how the Run time changes with the bucket year from 1880s to 2010s. With the increase of year, the upper bound outlier is increasing, in order to obtain a clearer graph, I deleted the runtime larger than 250 mins and obtained the graph of *Movie Run Time By Year(deleted outliers)*.
+  2. We have 751 Run time missing value and the deleted outliers number is 52, thus, the total points for construction of the graph *Movie Run Time By Year(deleted outliers)* removed 803 points.
+
+* The relationship between Year and Run Time
+  1. The overall relationship between year and runtime is positively correlated. Specifically, the median of the run time from 1880s to 1920s increased dramatically, the median in 1880s is almost 0 but in 1920s, it increases to around 60 mins. After 1920s, the run time keep increasing but the increasing slope decreases. 
+  2. The IQR is often seen as a measure of spread than the range as it is not affected by outliers. The spread level of the run time is small at the beginning, which then experiences a dramatically increase, and then drecreases recently. Specifically, the sample size of before 1900 is small which results we can barely see the IQR for the boxplots of the years from 1880 to 1900). From 1910s, the IQR become obervable and it increases by time until 1940s. After 1940s, the IQR decreases again.
+  3. The outliers number keeps increasing by time. For one hand, there is little lower bound outliers before 1940s, but after which, the lower bound increases dramatically by time. For another hand, we observe a large number of the upper bound outliers through out of the timeline as shown in graph.
+
+
+**Relationship between Year, Run Time, and Budget**
+ 
+* Data processing before plotting
+  1. In order to visualize the year, run time and budget in one graph and let the graph informative, I bucket the year variable by 30 years, so in this scenario, the number of year group is 5. 
+  2. There are totally 35442 missing value in the Budget column, and I transform the budget by divide 1,000,000 in order to simply the x axis notation.
+
+* The relationship among the Year, Run Time, and Budget
+  1. The sample size for the grouped years in before1900s an 1910s-1930s are very small and we barely observe any pattern for the graph of *Movie Run Time by Grouped Year and Budget in million*.
+  2. For the group of 1940s-1960s(the red points and red line). The green line indicates the run time booms from below 100 mins to almost 200 mins and the budget also experiences a certain increase. More importantly, we can see the slope of the green line is very steep, which means the extremely strong positive relationship between the Budget and the Run time for this time period.
+  3. For the group of 1970s-1990s(the blue points and blue lines), the buget increases continuously but the relationship between the Run Time and Budget is much weak compared with the previous period. Most of the blue points clusters together.
+  4. For the most recently group of 2000s-2010s, the variance of the budget becomes very large, as we can see for the low budget movies, the Run Time also has a large variance, which means the relationship between the Run Time and Budget becomes weak and slope of the pink line is small either.
+
+
+## 3. Encode `Genre` column
+
+The column `Genre` represents a list of genres associated with the movie in a string format. Write code to parse each text string into a binary vector with 1s representing the presence of a genre and 0s the absence, and add it to the dataframe as additional columns. Then remove the original `Genre` column.
+
+For example, if there are a total of 3 genres: Drama, Comedy, and Action, a movie that is both Action and Comedy should be represented by a binary vector <0, 1, 1>. Note that you need to first compile a dictionary of all possible genres and then figure out which movie has which genres (you can use the R `tm` package to create the dictionary).
+
+```{r}
+# TODO: Replace Genre with a collection of binary columns
+#construction of genre_dic
+genre_df = data.frame(df2$Genre)
+all_genre = apply(genre_df, 2, paste, collapse = ', ')
+genre_dic_temp = unique(unlist(strsplit(all_genre, ', ')))
+genre_dic = genre_dic_temp[genre_dic_temp!='N/A']
+
+
+#transform binary genre variable
+zero_df = data.frame(matrix(0, nrow = length(df2$Genre), ncol = length(genre_dic)))
+
+for (i in 1:length(df2$Genre)){
+  gener_i = df2$Genre[i]
+  if(i%%10000 == 0)  print(gener_i)
+
+  for (j in 1:length(genre_dic)){
+    if(grepl(genre_dic[j], gener_i) == TRUE){
+      zero_df[i,j] = 1
+    }
+  }
+}
+
+df2$bi_gerne = apply(format(zero_df), 1, paste, collapse = ',')
+
+```
+
+Plot the relative proportions of movies having the top 10 most common genres.
+
+```{r}
+# TODO: Select movies from top 10 most common genres and plot their relative proportions
+top10_genres = sort(table(unlist(strsplit(all_genre, ', '))), decreasing = T)[1:10]
+
+top10_genres_df = data.frame(top10_genres)
+top10_genres_df$rel_pro = sapply(top10_genres_df$Freq, function(x) {(x/sum(top10_genres_df$Freq))*100})
+
+#Visualize the relative proportions
+ggplot(top10_genres_df, aes(x=Var1, y=rel_pro)) +
+  geom_bar(stat="identity", fill="steelblue")+ 
+  ggtitle('Top 10 most common genres relative proportion') + xlab('Genre Type') + ylab('Relative Proportion')
+```
+
+Examine how the distribution of `Runtime` changes across genres for the top 10 most common genres.
+
+```{r}
+# TODO: Plot Runtime distribution for top 10 most common genres
+#get the top10 genres index
+top10_genres_list = names(top10_genres)
+
+top10_genres_index = rep(0, length(genre_dic))
+
+for (i in 1:length(genre_dic)){
+  for (j in 1:length(top10_genres_list)){
+    if (grepl(genre_dic[i],top10_genres_list[j]) == TRUE){
+      top10_genres_index[i] = 1
+    }
+  }
+}
+
+
+get_gerne_flag = function(df2,genre_type){
+  #df2$genre_type = rep(0, nrow(df2))
+  df2[,genre_type] = rep(0, nrow(df2))
+  print(df2[, genre_type])
+  ind = which(genre_dic == genre_type)*2-1
+  print(ind)
+  for (i in 1:nrow(df2)){
+    if (substr(df2$bi_gerne[i],ind,ind) == '1'){
+     #df2$genre_type[i] = 1
+      df2[, genre_type][i] = 1
+      #df2
+    }
+  }
+  return(df2)
+}
+
+
+create_gerne_variable = function(df2, top10_genres){
+  top10_genres_list = names(top10_genres)
+  for (i in 1: length(top10_genres_list)){
+    df2 = get_gerne_flag(df2, top10_genres_list[i])
+  }
+  return(df2)
+}
+
+df2 = create_gerne_variable(df2, top10_genres)
+
+
+
+Drama_runtime_df = df2[df2$Drama ==1, ]['Runtime_converted']
+Drama_runtime_df$Gerne = 'Drama'
+Drama_runtime_df_sort = Drama_runtime_df[order(-Drama_runtime_df$Runtime_converted),]
+
+Comedy_runtime_df = df2[df2$Comedy ==1, ]['Runtime_converted']
+Comedy_runtime_df$Gerne = 'Comedy'
+Comedy_runtime_df_sort = Comedy_runtime_df[order(-Comedy_runtime_df$Runtime_converted),]
+
+Short_runtime_df = df2[df2$Short ==1, ]['Runtime_converted']
+Short_runtime_df$Gerne = 'Short'
+Short_runtime_df_sort = Short_runtime_df[order(-Short_runtime_df$Runtime_converted),]
+
+Romance_runtime_df = df2[df2$Romance ==1, ]['Runtime_converted']
+Romance_runtime_df$Gerne = 'Romance'
+Romance_runtime_df_sort = Romance_runtime_df[order(-Romance_runtime_df$Runtime_converted),]
+
+Action_runtime_df = df2[df2$Action ==1, ]['Runtime_converted']
+Action_runtime_df$Gerne = 'Action'
+Action_runtime_df_sort = Action_runtime_df[order(-Action_runtime_df$Runtime_converted),]
+
+Crime_runtime_df = df2[df2$Crime ==1, ]['Runtime_converted']
+Crime_runtime_df$Gerne = 'Crime'
+Crime_runtime_df_sort = Crime_runtime_df[order(-Crime_runtime_df$Runtime_converted),]
+
+Thriller_runtime_df = df2[df2$Thriller ==1, ]['Runtime_converted']
+Thriller_runtime_df$Gerne = 'Thriller'
+Thriller_runtime_df_sort = Drama_runtime_df[order(-Drama_runtime_df$Runtime_converted),]
+
+Documentary_runtime_df = df2[df2$Documentary ==1, ]['Runtime_converted']
+Documentary_runtime_df$Gerne = 'Documentary'
+Documentary_runtime_df_sort = Documentary_runtime_df[order(-Documentary_runtime_df$Runtime_converted),]
+
+Adventure_runtime_df = df2[df2$Adventure ==1, ]['Runtime_converted']
+Adventure_runtime_df$Gerne = 'Adventure'
+Adventure_runtime_df_sort = Adventure_runtime_df[order(-Adventure_runtime_df$Runtime_converted),]
+
+Animation_runtime_df = df2[df2$Animation ==1, ]['Runtime_converted']
+Animation_runtime_df$Gerne = 'Animation'
+Animation_runtime_df_sort = Animation_runtime_df[order(-Animation_runtime_df$Runtime_converted),]
+
+Gerne_runtime_df = rbind(Drama_runtime_df_sort,Comedy_runtime_df_sort,Short_runtime_df_sort,Romance_runtime_df_sort,Action_runtime_df_sort,Crime_runtime_df_sort,Thriller_runtime_df_sort,Documentary_runtime_df_sort,Adventure_runtime_df_sort,Animation_runtime_df_sort)
+
+
+ggplot(Gerne_runtime_df, aes(x = Gerne , y = Runtime_converted, color = Gerne)) + geom_boxplot()+ xlab('Gerne') + ylab('Movie Run Time') + ggtitle('Movie Run Time By Gerne')+ theme(axis.text.x = element_text(angle = 45, hjust =1))
+
+truncated_gerne_runtime_df = Gerne_runtime_df[Gerne_runtime_df$Runtime_converted<=500,]
+truncated_gerne_runtime_df = truncated_gerne_runtime_df[!is.na(truncated_gerne_runtime_df$Gerne),]
+
+ggplot(truncated_gerne_runtime_df, aes(x = Gerne , y = Runtime_converted, color = Gerne)) + geom_boxplot()+ xlab('Gerne') + ylab('Movie Run Time') + ggtitle('Movie Run Time By Gerne (truncated run time larger than 500 mins)') + theme(axis.text.x = element_text(angle = 45, hjust =1))
+```
+
+**Q**: Describe the interesting relationship(s) you observe. Are there any expected or unexpected trends that are evident?
+
+**A**: 
+
+*Expected trend
+  1.The Gerne of 'Short' has a small movie run time and the IQR is small too, which implies a small variance.
+  2. All the Gerne movies have a lot of upper bound and lower bound outliers, which shows us the run time of movie is pretty flexible across Gernes.
+
+*Unexpected trend
+  1. The median run time of the Animation is even smaller than the Short gerne, which brings a little surprise to me. Because our best guess is the movie in Short gerne may have shortest run time.
+  2. Since one movie can have multiple gernes, I examine whether the animation and short has a certain level's overlap. The persaon coefficient is calcualted, and the coefficient is **0.3841**, which show a weak correlation between these two columns.
+```{r}
+cor_df = data.frame(cbind(df2$Animation, df2$Short))
+cor(cor_df, use = 'complete.obs', method = 'pearson')
+```
+
+
+## 4. Eliminate mismatched rows
+
+The dataframe was put together by merging two different sources of data and it is possible that the merging process was inaccurate in some cases (the merge was done based on movie title, but there are cases of different movies with the same title). There are 3 columns that contain date information: `Year` (numeric year), `Date` (numeric year), and `Released` (string representation of the release date).
+
+Find and remove all rows where you suspect a merge error occurred based on a mismatch between these variables. To make sure subsequent analysis and modeling work well, avoid removing more than 10% of the rows that have a `Gross` value present.
+
+_Note: Do not remove the rows with `Gross == NA` at this point, just use this a guideline._
+
+```{r}
+# TODO: Remove rows with Year/Date/Released mismatch
+#extract year from the released variable
+df2$yr_released = as.numeric(format(as.Date(df2$Released, format = '%d/%m/%Y'),'%Y'))
+
+sum(is.na(df2$Year)) # no missing value in Year
+sum(is.na(df2$Date)) # the missing value in Date is 35442
+sum(is.na(df2$yr_released)) # the missing value in yr_released is 4949
+
+#split the dataset where Date and yr_released are both missing and not, thus the Year should be the only valid year variable
+#part 1
+df2_Date_yr_na = df2[is.na(df2$Date) & is.na(df2$yr_released),] # keep
+nrow(df2_Date_yr_na) # the row number is 4904
+  
+df2_Date_yr_notna = df2[!is.na(df2$Date) | !is.na(df2$yr_released),]
+nrow(df2_Date_yr_notna) # the row number is 35096
+
+#part2
+#For the rest dataset where Date is missing, we match the Year and yr_release
+df2_Date_na = df2_Date_yr_notna[is.na(df2_Date_yr_notna$Date),]
+nrow(df2_Date_na) # the row number is 30538
+
+df2_Year_yr_matched = df2_Date_na[df2_Date_na$Year == df2_Date_na$yr_released,] # keep
+nrow(df2_Year_yr_matched) #the row number is 25581
+
+df2_Year_yr_notmatched = df2_Date_na[df2_Date_na$Year != df2_Date_na$yr_released,]
+nrow(df2_Year_yr_notmatched) #num is 4957
+
+keep_grossNA_1 = df2_Year_yr_notmatched[is.na(df2_Year_yr_notmatched$Gross),] #keep
+nrow(keep_grossNA_1) # num is 4957
+
+#part3
+df2_yr_na = df2_Date_yr_notna[is.na(df2_Date_yr_notna$yr_released),]
+nrow(df2_yr_na) # the row num is 45
+
+df2_Year_Date_matched = df2_yr_na[df2_yr_na$Year == df2_yr_na$Date,] # keep
+nrow(df2_Year_Date_matched) # the row num is 22
+
+df2_Year_Date_notmatched = df2_yr_na[df2_yr_na$Year != df2_yr_na$Date,] 
+nrow(df2_Year_Date_notmatched) # the row num is 23
+
+keep_grossNA_2 = df2_Year_Date_notmatched[is.na(df2_Year_Date_notmatched$Gross),]
+nrow(keep_grossNA_2) # the row num is 0
+
+#reunion the 3 parts
+filter_df2 = rbind(df2_Date_yr_na, df2_Year_yr_matched, keep_grossNA_1, df2_Year_Date_matched)
+nrow(filter_df2) # the final nrow is 35464
+
+```
+
+**Q**: What is your precise removal logic, and how many rows remain in the resulting dataset?
+
+**A**:
+Because variable of Year in the df2 dataset contains no missing value, thus I split the dataset into three parts based on the NA situation of the other two variables. The three parts are exclusive sets.
+
+*Step1 - Part1
+While the Date & yr_released are both missing, we should fully trust on the variable of Year and let all the value of the Year to be valid, thus we fully keep the Part 1 dataset. Number of row kept is **4904**.
+
+*Step2 - Part2
+While the Date is missing and yr_released is not missing, we should check whether the Year and yr_released is matched. Here I remove all the rows the Year and yr_released can't be matched. Number of row kept is **25581**.
+
+*Step3 - Part3
+While the yr_released is missing and Date is missing, we should check whether the Year and Date is matched. Here I remove all the rows the Year and Date can't be matched. Number of row kept is **22**.
+
+*Step4 - the issue of Gross
+Since we are required to keep all the rows where Gross is NA. Thus I come back to the part2 and check the dataset while Date is missing and yr_released is not missing as well as the Year and yr_released is not matched, additionally, the Gross is NA. Here I get a dataset with row number of **4957**. Similarly, I filter the Part3, but no qualified dataset here.
+
+*Step5 - reunion all these qualified subsets
+I row bind these qualified subsets and the final datasets named filer_df2, with row dimension of **35464**.
+
+
+## 5. Explore `Gross` revenue
+
+For the commercial success of a movie, production houses want to maximize Gross revenue. Investigate if Gross revenue is related to Budget, Runtime or Genre in any way.
+
+_Note: To get a meaningful relationship, you may have to partition the movies into subsets such as short vs. long duration, or by genre, etc._
+
+```{r}
+# TODO: Investigate if Gross Revenue is related to Budget, Runtime or Genre
+summary(df2$Gross) # missing value is 35442
+df2$gross_trans = df2$Gross/1000000
+
+#create binary variable to indicate whether the movie's genre is in the top10 or not
+df2$top10_genres_flag_temp = df2$Drama + df2$Comedy +df2$Short +df2$Romance +df2$Action
++df2$Crime +df2$Thriller +df2$Documentary +df2$Adventure +df2$Animation
+
+df2$top10_genres_flag = ifelse(df2$top10_genres_flag_temp>=1, 'In top10 genres', 'Not in top10 genres')
+#create binary runtime variable to indicate it is short or long duration
+quantile(df2$Runtime_converted, probs = c(0, 0.25, 0.5, 0.75,1), na.rm = TRUE)
+# the 50% is 90 mins, then I spilt the runtime by 90 mins
+df2$runtime_duration_flag = ifelse(df2$Runtime_converted >= 70, 'long duration run time', 'short duration run time')
+
+sp = ggplot(df2, aes(x = tran_budget, y = gross_trans, col = runtime_duration_flag, alpha = 0.5)) + geom_point()
+
+sp + facet_grid(top10_genres_flag ~ runtime_duration_flag) + ggtitle('Gross revenue by Budget facted by run time and genre (in million)') + xlab('Budget in million') + ylab('Gross in million')
+
+```
+```{r}
+# calculate the correlation matrix among the gross, budget, genre, runtime
+
+df2$top10_genres_dummy = ifelse(df2$top10_genres_flag_temp>=1, 1, 0)
+cor_matrix_df = data.frame(cbind(df2$gross_trans, df2$tran_budget, df2$top10_genres_dummy, df2$Runtime_converted))
+names(cor_matrix_df) = c('gross', 'budget', 'top10 genre', 'runtime')
+cor(cor_matrix_df, use = "complete.obs")
+#chart.Correlation(cor_matrix_df, histogram = TRUE, pch = 19)
+
+ggcorr(cor_matrix_df) + ggtitle('Correlation graph of gross, budget, genre and runtime')
+```
+
+
+
+
+**Q**: Did you find any observable relationships or combinations of Budget/Runtime/Genre that result in high Gross revenue? If you divided the movies into different subsets, you may get different answers for them - point out interesting ones.
+
+**A**: 
+* I subset the movies by Runtime 25 percentile, with the run time lower than 25 percentile, I flag it as short run time, vice versa. I also subset the movies by Gerne, the one in the top10 genre are labeled as 'in top10 genre', vice versa. 
+
+The combiation of Budget/Runtime/Genre that result in high Gross revenue is high budget, top 10 genre, and long run time.
+
+
+*The correlation matrix shows these variables have statistically significant correlation, especially, the Budget and the gross has a strong positive correlation with coefficient of 0.7 around. 
+
+```{r}
+# TODO: Investigate if Gross Revenue is related to Release Month
+df2$month = as.factor(format(as.Date(df2$Released, format = '%d/%m/%Y'),'%m'))
+
+ggplot(df2, aes(x = month , y = gross_trans, color = month)) + geom_boxplot()+ xlab('Month') + ylab('Gross Revenue in Million') + ggtitle('Gross Revenue by Month') 
+
+df2_trun_gross = df2[df2$gross_trans<=2000,]
+ggplot(df2_trun_gross, aes(x = month , y = gross_trans, color = month)) + geom_boxplot()+ xlab('Month') + ylab('Gross Revenue in Million') + ggtitle('Gross Revenue by Month(truncate outliers)') 
+
+```
+
+*If Gross Revenue is related to Release Month
+From the boxplot we observe that the median of gross revenue has seasonal pattern, though the outliers number is large. Specifically, the revenue would be higher in summer from the month of May to July as well as in the winter holiday months from the November to Januray. 
+
+
+## 6. Process `Awards` column
+
+The variable `Awards` describes nominations and awards in text format. Convert it to 2 numeric columns, the first capturing the number of wins, and the second capturing nominations. Replace the `Awards` column with these new columns, and then study the relationship of `Gross` revenue with respect to them.
+
+_Note: The format of the `Awards` column is not standard; you may have to use regular expressions to find the relevant values. Try your best to process them, and you may leave the ones that don't have enough information as NAs or set them to 0s._
+
+```{r}
+# TODO: Convert Awards to 2 numeric columns: wins and nominations
+# "{number} wins"
+df2$wins = as.numeric(str_extract(string = df2$Awards, "\\d+\\b(?=\\swin)")) 
+df2$wins[is.na(df2$wins)] = 0
+# "Won {number}"
+won = as.numeric(str_extract(string = df2$Awards, "(?<=Won\\s)\\d+"))
+won[is.na(won)] = 0
+df2$wins = df2$wins + won
+
+# "{number} nominations"
+df2$nominations = as.numeric(str_extract(string = df2$Awards, "\\d+\\b(?=\\snomination)"))
+df2$nominations[is.na(df2$nominations)] = 0
+# "Nominated for {number}"
+nominated = as.numeric(str_extract(string = df2$Awards, "(?<=Nominated for\\s)\\d+"))
+nominated[is.na(nominated)] = 0
+df2$nominations = df2$nominations + nominated
+
+
+```
+
+**Q**: How did you construct your conversion mechanism? How many rows had valid/non-zero wins or nominations?
+
+**A**: 
+I use the regular expressions to extract the numbers of wins and nominations. The regular expression patterns are constructed based on the following observations:
+   1. the numbers of wins and nominations are followed the strings ‘ wins’ and ‘ nominations’ respectively;
+   2. the string "Won " and "Nominated by " are followed by the numbers of wins and nominations respectively.
+   
+```{r}
+# TODO: Plot Gross revenue against wins and nominations
+
+p1 = ggplot(df2, aes(x = wins , y = gross_trans, color = nominations)) +
+  geom_point(alpha = 0.8) + coord_cartesian(ylim=c(0,2000), xlim=(c(0,200)))+ geom_smooth() + xlab('wins number') + ylab('Gross (coordination)')
+
+p2 = ggplot(df2, aes(x = wins , y = gross_trans, color = nominations)) +
+  geom_point(alpha = 0.8) + coord_cartesian(ylim=c(0,1000), xlim=(c(0,100)))+ geom_smooth() + xlab('wins number') + ylab('Gross (truncate)')
+
+p3 = ggplot(df2, aes(x = wins, y = gross_trans, color = nominations)) +
+  geom_point(alpha = 0.8) + coord_cartesian(ylim=c(0,200), xlim=(c(0,60)))+ geom_smooth() + xlab('wins number') + ylab('Gross (further truncate)')
+
+p4 = ggplot(df2, aes(x= nominations)) + geom_histogram(alpha = 0.8) + ggtitle('Nominations number distribution') + xlab('Nomination number') + ylab('Frequency')
+
+p5 = ggplot(df2, aes(x= wins)) + geom_histogram(alpha = 0.8) + ggtitle('Wins number distribution') + xlab('Wins number') + ylab('Frequency')
+
+ggarrange(p4,p5, 
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+ggarrange(p1,p2,p3,ncol = 2, nrow = 2)
+```
+
+**Q**: How does the gross revenue vary by number of awards won and nominations received?
+
+**A**: I plot three **Gross Revenue by Wins and Nominations**, the purpose is to obtain a more meaningful graph and gain sight from it.The nomination number is represented by the point size and color. The bigger and lighter the points, the larger the nomination numbers are. The nominations number has no obvious pattern with the distribution of gross. 
+
+* The original one, **Gross Revenue by Wins and Nominations** shows a weak positive relationship between the gross and win and nomination number.
+
+* After check the histogram distirbution of the nomination number and win number, the wins and nomination number distribution is high left skewed, from which we guess the original graph's coordination may be not suitable and it would hide a lot of information if we didn't adjust it.
+
+* Thus, I truncate the coordination and obtain the ***Gross Revenue by Wins and Nominations further truncate*, from which we observe the sharp increase of the gross with the increase of Wins and Nominations number.
+
+
+## 7. Movie ratings from IMDb and Rotten Tomatoes
+
+There are several variables that describe ratings, including IMDb ratings (`imdbRating` represents average user ratings and `imdbVotes` represents the number of user ratings), and multiple Rotten Tomatoes ratings (represented by several variables pre-fixed by `tomato`). Read up on such ratings on the web (for example [rottentomatoes.com/about](https://www.rottentomatoes.com/about) and [ www.imdb.com/help/show_leaf?votestopfaq](http:// www.imdb.com/help/show_leaf?votestopfaq)).
+
+Investigate the pairwise relationships between these different descriptors using graphs.
+
+```{r}
+# TODO: Illustrate how ratings from IMDb and Rotten Tomatoes are related
+#imdb rating, tomato rating and tomato image relationship 
+ggplot(df2, aes(x = imdbRating, y = tomatoRating, col = tomatoImage))+ geom_point(alpha = 0.8) + geom_smooth() + ggtitle('IMDB rating vs. Tomato Rating and Tomato Image') + xlab('imdb Rating') + ylab('Tomato Rating')
+
+#correlation matrix 
+cor_matrix_df_rating = data.frame(cbind(df2$imdbRating, df2$imdbVotes, df2$tomatoMeter, df2$tomatoRating, df2$tomatoReviews, df2$tomatoUserMeter, df2$tomatoUserRating, df2$tomatoUserReviews))
+names(cor_matrix_df_rating) = c('imdbRating', 'imdbVotes', 'tomatoMeter', 'tomatoRating', 'tomatoReviews','tomatoUserMeter', 'tomatoUserRating', 'tomatoUserReviews')
+cor(cor_matrix_df_rating, use = "complete.obs")
+
+ggcorr(cor_matrix_df_rating)
+
+```
+
+**Q**: Comment on the similarities and differences between the user ratings of IMDb and the critics ratings of Rotten Tomatoes.
+
+**A**: 
+**The relationship between IMDB rating, tomato Rating and tomato image**
+
+From the correlation matrix, the calculated imdb rating and tomato rating is 0.79, which is moderately strong.
+
+From the graph of *IMDB rating vs. Tomato Rating and Tomato Image*, we observe for the 'rotten' tomato image (purple), the imdb and tomato rating have a 'linear' relationship, somehow the imdb rating incline to have a higher rating score than the tomato rating. 
+
+For the fresh tomato, the smooth green line is first flat and then the slope increase slightly, which impies while the imdb rating has a large range but the correpsonding tomato rating is the same and are much higher than imdb. 
+
+For the certified tomato, the tomato rating is even much higher than the imdb firstly, with the increase of the score, the similarity increases.
+
+In sum, for the movies with a very low or very high socre rating, the similarity between the tomato rating and imdb rating is high. However, for the middle parts, they differs from each other a lot.
+
+**The pairwise relationship for all the movie rating variables**
+The pairwise relationship are represented by the graph of *Correlation Matrix for Movie Rating  variables*. All the pairwise correlation with coefficient number is represented by the color with the number labeled in the legend, from which we understand there is no negative correlation for these variables (no blue color). Additionally, the correlation level is moderate to strong.
+
+## 8. Ratings and awards
+
+These ratings typically reflect the general appeal of the movie to the public or gather opinions from a larger body of critics. Whereas awards are given by professional societies that may evaluate a movie on specific attributes, such as artistic performance, screenplay, sound design, etc.
+
+Study the relationship between ratings and awards using graphs (awards here refers to wins and/or nominations). 
+
+```{r}
+# TODO: Show how ratings and awards are related
+#imdb rating with wins and nomination numbers
+sp_nomi_imdb = ggplot(df2, aes(y = nominations, x = imdbRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Nominations number vs. imdbRating') + ylab('Nominations Number') + xlab('imdbRating') + coord_cartesian(ylim = c(0,100))
+
+sp_win_imdb = ggplot(df2, aes(y = wins, x = imdbRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Wins number vs. imdbRating') + ylab('Wins Number') + xlab('imdbRating') + coord_cartesian(ylim = c(0,100))
+
+ggarrange(sp_nomi_imdb,sp_win_imdb, ncol = 1, nrow = 2)
+
+sp_nomi_imdb_trun = ggplot(df2, aes(y = nominations, x = imdbRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Nominations number vs.tomatoRating') + ylab('Nominations Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,50))
+
+sp_win_imdb_trun = ggplot(df2, aes(y = wins, x = imdbRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Wins number vs. tomatoRating') + ylab('Wins Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,50))
+
+ggarrange(sp_nomi_imdb_trun,sp_win_imdb_trun, ncol = 1, nrow = 2)
+
+#tomato rating with wins and nomination numbers
+sp_nomi_toma = ggplot(df2, aes(y = nominations, x = tomatoRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Nominations number vs. tomatoRating') + ylab('Nominations Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,100))
+
+sp_win_toma = ggplot(df2, aes(y = wins, x = tomatoRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Wins number vs. tomatoRating') + ylab('Wins Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,100))
+
+ggarrange(sp_nomi_toma,sp_win_toma, ncol = 1, nrow = 2)
+
+sp_nomi_toma_trun = ggplot(df2, aes(y = nominations, x = tomatoRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Nominations number vs. IMDB rating') + ylab('Nominations Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,50))
+
+sp_win_toma_trun = ggplot(df2, aes(y = wins, x = tomatoRating)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Wins number vs. tomatoRating') + ylab('Wins Number') + xlab('tomatoRating') + coord_cartesian(ylim = c(0,50))
+
+ggarrange(sp_nomi_toma_trun,sp_win_toma_trun, ncol = 1, nrow = 2)
+```
+
+**Q**: How good are these ratings in terms of predicting the success of a movie in winning awards or nominations? Is there a high correlation between two variables?
+
+**A**: 
+In sum, the ratings can be good predictor for a movie in wining awards or nominations. But the correlation between these two variables are not very strong. 
+
+I visulize two sets of graphs to examine the relationship between the awards number or nomination number and the rating score.
+
+* For both the tomato rating and imdb rating, the higher the rating score, the larger the variance of the wins or nomination number, which means the movies with higher rating score may have much more space for receiving different level's win or nomination. However, if the rating score is low, the variance of the win or nomination number is very small and keep at a low level, which means the concesus would be made for these movies with lower score. 
+
+*For both the tomato rating and imdb rating, the higher the rating score, the larger the possibility of obtaining win or nomination.
+
+*For the movies with higher rating score, the variance of the win or nomination number is larger, which means there may exist some inconsistent review for them and the win or nomination number is diverse.
+
+*However, for the movies with low rating socre, we can condifently predict that consensus is made on it and the wins or nomination number variance is small and the number is either samll.
+
+
+## 9. Expected insights
+
+Come up with two new insights (backed up by data and graphs) that is expected. Here “new” means insights that are not an immediate consequence of one of the above tasks. You may use any of the columns already explored above or a different one in the dataset, such as `Title`, `Actors`, etc.
+
+```{r}
+# TODO: Find and illustrate two expected insights
+#awards number increases by year
+ggplot(df2, aes(x = Year, y = wins)) + geom_point(alpha = 0.8) + geom_smooth() + ggtitle('Wins number By Year')
+
+#language number increases by year
+get_language_table = function(df,colname){
+  col_df = data.frame(df[,colname])
+  all_str = apply(col_df, 2, paste, collapse = ', ')
+  all_str_temp = unlist(strsplit(all_str, ', '))
+  result = table(all_str_temp)
+  return (result)
+}
+
+language_df = data.frame(get_language_table(df2,'Language'))
+top30_lan_df = language_df[order(-language_df$Freq),][1:30,]
+
+ggplot(data=top30_lan_df, aes(x= all_str_temp, y= Freq)) +
+  geom_bar(position = 'dodge', stat = 'identity') + 
+  coord_flip() +
+  ggtitle("Top 30 Languages used in Movie") +
+  xlab('Language') + 
+  ylab('Frequency')
+
+```
+
+**Q**: Expected insight #1.
+
+**A**: As shown by the *Wins number by Year* graph, the wins number increases by year from 1880 to 2018.This trend is consistent with our expectations. For one hand, with the increase number of the movie, the award number would be increase normally. For another hand, the Movie industry is prosperous and the increase of award number is normal.
+
+
+**Q**: Expected insight #2.
+
+**A**: As shown by the *Top 30 Languages used in Movie*, the top 30 languages used in movies don't suprise me because English almost has a frequency of 30000, and then the next popular languages are French, German, Spain respectively. These are the mainstream countries where the movie industry is very posperous, moreover, these languages are also widespread all over the world.
+
+
+## 10. Unexpected insight
+
+Come up with one new insight (backed up by data and graphs) that is unexpected at first glance and do your best to motivate it. Same instructions apply as the previous task.
+
+```{r}
+# TODO: Find and illustrate one unexpected insight
+#budget by Genre
+get_genre_df = function(df, genre, col){
+  temp_df = df[df$genre == 1, ][col]
+  temp_df[,'Gerne'] = genre
+  temp_df_sort = temp_df[order(-temp_df[,col]),]
+ return (temp_df_sort)
+}
+
+get_genre_df(df2, 'Drama', 'tran_budget')
+
+Drama_budget_df = df2[df2$Drama ==1, ]['tran_budget']
+Drama_budget_df$Gerne = 'Drama'
+Drama_budget_df_sort = Drama_budget_df[order(-Drama_budget_df$tran_budget),]
+
+Comedy_budget_df = df2[df2$Comedy ==1, ]['tran_budget']
+Comedy_budget_df$Gerne = 'Comedy'
+Comedy_budget_df_sort = Comedy_budget_df[order(-Comedy_budget_df$tran_budget),]
+
+Short_budget_df = df2[df2$Short ==1, ]['tran_budget']
+Short_budget_df$Gerne = 'Short'
+Short_budget_df_sort = Short_budget_df[order(-Short_budget_df$tran_budget),]
+
+Romance_budget_df = df2[df2$Romance ==1, ]['tran_budget']
+Romance_budget_df$Gerne = 'Romance'
+Romance_budget_df_sort = Romance_budget_df[order(-Romance_budget_df$tran_budget),]
+
+Action_budget_df = df2[df2$Action ==1, ]['tran_budget']
+Action_budget_df$Gerne = 'Action'
+Action_budget_df_sort = Action_budget_df[order(-Action_budget_df$tran_budget),]
+
+Crime_budget_df = df2[df2$Crime ==1, ]['tran_budget']
+Crime_budget_df$Gerne = 'Crime'
+Crime_budget_df_sort = Crime_budget_df[order(-Crime_budget_df$tran_budget),]
+
+Thriller_budget_df = df2[df2$Thriller ==1, ]['tran_budget']
+Thriller_budget_df$Gerne = 'Thriller'
+Thriller_budget_df_sort = Drama_budget_df[order(-Drama_budget_df$tran_budget),]
+
+Documentary_budget_df = df2[df2$Documentary ==1, ]['tran_budget']
+Documentary_budget_df$Gerne = 'Documentary'
+Documentary_budget_df_sort = Documentary_budget_df[order(-Documentary_budget_df$tran_budget),]
+
+Adventure_budget_df = df2[df2$Adventure ==1, ]['tran_budget']
+Adventure_budget_df$Gerne = 'Adventure'
+Adventure_budget_df_sort = Adventure_budget_df[order(-Adventure_budget_df$tran_budget),]
+
+Animation_budget_df = df2[df2$Animation ==1, ]['tran_budget']
+Animation_budget_df$Gerne = 'Animation'
+Animation_budget_df_sort = Animation_budget_df[order(-Animation_budget_df$tran_budget),]
+
+Gerne_budget_df = rbind(Drama_budget_df_sort,Comedy_budget_df_sort,Short_budget_df_sort,Romance_budget_df_sort,Action_budget_df_sort,Crime_budget_df_sort,Thriller_budget_df_sort,Documentary_budget_df_sort,Adventure_budget_df_sort,Animation_budget_df_sort)
+
+Gerne_budget_df_trun = Gerne_budget_df[Gerne_budget_df$tran_budget<=300,]
+
+ggplot(Gerne_budget_df, aes(x = Gerne , y = tran_budget, color = Gerne)) + geom_boxplot()+ xlab('Gerne') + ylab('Budget in Million') + ggtitle('Budget By Gerne') + theme(axis.text.x = element_text(angle = 45, hjust =1))
+
+```
+
+
+**Q**: Unexpected insight.
+
+**A**: 
+As shown by the graph *Budget By Gerne*, the Animation Budget has a largest median value and the Documentary has a smallest median value, which are out of my mind. As we previously discussed, the animation and the short genre both have the shortest run time, however, the animation is with a largest budget. Moreover, Animation usually have less cost on the actors, thus my expectation is its budget should be small. 
+
+The explanation is animation is labour intensive, it has to pay the animators who are experts. Animated films such as Pixar's have a long and expensive process. 
+
+
+
